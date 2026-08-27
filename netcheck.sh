@@ -6,13 +6,13 @@
 ##                                       -- Tristan Brotherton                ##
 ################################################################################
 
-VAR_SCRIPTNAME=`basename "$0"`
+VAR_SCRIPTNAME=$(basename "$0")
 VAR_SCRIPTLOC="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 VAR_CONNECTED=true
 VAR_LOGFILE=log/connection.log
 VAR_SPEEDTEST_DISABLED=false
 VAR_CHECK_TIME=5
-VAR_HOST=http://www.google.com
+VAR_HOST=https://www.google.com
 VAR_ENABLE_WEBINTERFACE=false
 VAR_ENABLE_ALWAYS_SPEEDTEST=false
 VAR_WEB_PORT=9000
@@ -131,28 +131,14 @@ PRINT_LOGGING_TERMINATED() {
 }
 
 GET_LOCAL_IP() {
-  ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p' | sed -e 's/^/                   http:\/\//' | sed -e "s/.*/&:$1/"
+  for ip in $(hostname -I); do
+    echo "                   http://$ip:$1"
+  done
   echo
 }
 
 START_WEBSERVER() {
-  # Debian 11 and above drops the python symlink
-  if [ "$(grep -Ei 'bullseye' /etc/*release)" ]; then
-    VAR_PYTHON_EXEC=python3
-  else
-    VAR_PYTHON_EXEC=python
-  fi
-
-  # Find python version and start corresponding webserver
-  VAR_PYTHON_VERSION=$($VAR_PYTHON_EXEC -c 'import sys; print(sys.version_info[0])')
-  case $VAR_PYTHON_VERSION in
-    2)
-      (cd $VAR_SCRIPTLOC/log; $VAR_PYTHON_EXEC -m SimpleHTTPServer $1 &) &> /dev/null  
-    ;;
-    3)
-      (cd $VAR_SCRIPTLOC/log; $VAR_PYTHON_EXEC -m http.server $1 &) &> /dev/null
-    ;;
-  esac
+  (cd "$VAR_SCRIPTLOC/log" && python3 -m http.server "$1" &) &> /dev/null
 }
 
 SETUP_WEBSERVER() {
@@ -213,8 +199,7 @@ RUN_SPEEDTEST() {
 NET_CHECK() {
   while true; do
     # Check for network connection
-    nohup wget -q --tries=5 --timeout=20 -O - $VAR_HOST > /dev/null 2>&1
-    if [[ $? -eq 0 ]]; then :
+    if wget -q --tries=5 --timeout=20 -O /dev/null "$VAR_HOST"; then
       if [ $VAR_ENABLE_ALWAYS_SPEEDTEST = true ] && [ $VAR_CONNECTED = true ]; then :
         echo "$STRING_5" | tee -a $VAR_LOGFILE
         RUN_SPEEDTEST
@@ -248,7 +233,7 @@ NET_CHECK() {
       fi
     fi
     CHECK_EVENT_HOOK
-    sleep $VAR_CHECK_TIME
+    sleep "$VAR_CHECK_TIME"
 
   done
 
